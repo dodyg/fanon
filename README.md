@@ -1,6 +1,13 @@
 # Wiki
 
-**Note**. This sample uses preview features of C# 9 that is only available on [.NET 5 SDK Preview 7](https://dotnet.microsoft.com/download/dotnet/5.0).
+This is an experimental wiki to figure out better ways to write and organize ideas. The ideas being experimented here includes:
+
+- Federated Wiki
+- Namespace/Collections
+- Numbered Entries
+- Search
+
+**Note**. This wiki requires preview features of C# 9 that is only available on [.NET 5 SDK Preview 7](https://dotnet.microsoft.com/download/dotnet/5.0).
 
 This is a Single File Application (SFA) that provide wiki functionality.
 
