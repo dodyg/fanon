@@ -3,13 +3,9 @@
 This is an experimental wiki to figure out better ways to write and organize ideas. The ideas being experimented here includes:
 
 - Federated Wiki
-- Namespace/Collections
 - Numbered Entries
-- Search
 
 **Note**. This wiki requires preview features of C# 9 that is only available on [.NET 5 SDK Preview 7](https://dotnet.microsoft.com/download/dotnet/5.0).
-
-This is a Single File Application (SFA) that provide wiki functionality.
 
 - It supports markdown
 - You can rename pages
@@ -19,10 +15,8 @@ This is a Single File Application (SFA) that provide wiki functionality.
 - You can delete attachments
 - You can delete pages
 - It has pages and attachment markdown linking helpers
-
-All the code is contained within `Program.cs`.
-
-Please be noted that SFA is a very limited approach in web system development. It is really fun for quick hacking but as of now, there is a lot of nice functionality such as Model Binding that is not available for this style of development.
+- Namespace support. Each namespace is marked by url segment, e.g. `/recruitment/about` means `about` page under `recruitment` namespace. It can also go multiple levels of namespace e.g. `/recruitment/2020/about` -- the namespace is `recruitment/2020`.
+- Basic search functionality 
 
 Used libraries:
 

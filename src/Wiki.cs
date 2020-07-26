@@ -12,7 +12,6 @@ class Wiki
 {
     DateTime Timestamp() => DateTime.UtcNow;
 
-    const string PageCollectionName = "Pages";
     const string AllPagesKey = "AllPages";
     const double CacheAllPagesForMinutes = 30;
 
@@ -30,6 +29,40 @@ class Wiki
     // Get the location of the LiteDB file.
     string GetDbPath() => Path.Combine(_env.ContentRootPath, "wiki.db");
 
+    Namespace? GetOrSetNamespace(LiteDatabase db, string? ns)
+    {
+        ns = ns?.Trim();
+
+        if (string.IsNullOrWhiteSpace(ns))
+            return null;
+
+        var coll = db.GetCollection<Namespace>(Collections.Namespaces);
+
+        var n = coll.FindOne(x => x.Name.Equals(ns, StringComparison.OrdinalIgnoreCase));
+
+        if (n is not object)
+        {
+            var newNs = new Namespace(default(int), ns, string.Empty);
+            var documentId = coll.Insert(newNs);
+            return coll.FindById(documentId);
+        }
+
+        return n;
+    }
+
+    public static (string? ns, string pageName)Split(string uri)
+    {
+        var split = uri.Split('/');
+
+        if (split.Length == 0)
+            return (null, uri);
+
+        var pageName = split[^1];
+        var ns = string.Join("/", split[0..^1]);
+
+        return (ns, pageName);
+    }
+
     // List all the available wiki pages. It is cached for 30 minutes.
     public List<Page> ListAllPages()
     {
@@ -39,8 +72,8 @@ class Wiki
             return pages;
 
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(PageCollectionName);
-        var items = coll.Query().ToList();
+        var coll = db.GetCollection<Page>(Collections.Pages);
+        var items = coll.Query().Include(x => x.Ns).ToList();
 
         _cache.Set(AllPagesKey, items, new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheAllPagesForMinutes)));
         return items;
@@ -49,12 +82,14 @@ class Wiki
     // Get a wiki page based on its path
     public Page? GetPage(string path)
     {
+        var (ns, pageName) = Split(path);
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(PageCollectionName);
+        var coll = db.GetCollection<Page>(Collections.Pages);
         coll.EnsureIndex(x => x.Name);
 
         return coll.Query()
-                .Where(x => x.Name.Equals(path, StringComparison.OrdinalIgnoreCase))
+                .Where(x => (x.Ns == null || (x.Ns.Name.Equals(ns, StringComparison.OrdinalIgnoreCase) == true)) && x.Name.Equals(pageName, StringComparison.OrdinalIgnoreCase))
+                .Include(x => x.Ns)
                 .FirstOrDefault();
     }
 
@@ -64,13 +99,12 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.Pages);
             coll.EnsureIndex(x => x.Name);
 
             Page? existingPage = input.Id.HasValue ? coll.FindOne(x => x.Id == input.Id) : null;
 
             var sanitizer = new HtmlSanitizer();
-            var properName = input.Name.ToString().Trim().Replace(' ', '-').ToLower();
 
             Attachment? attachment = null;
             if (!string.IsNullOrWhiteSpace(input.Attachment?.FileName))
@@ -87,11 +121,14 @@ class Wiki
                 var res = db.FileStorage.Upload(attachment.FileId, input.Attachment.FileName, stream);
             }
 
+            var (ns, pageName) = Split(input.Name);
+            var properName = pageName.ToString().Trim().Replace(' ', '-').ToLower();
             if (existingPage is not object)
             {
                 var newPage = new Page
                 {
                     Name = sanitizer.Sanitize(properName),
+                    Ns = GetOrSetNamespace(db, ns),
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
@@ -109,6 +146,7 @@ class Wiki
                 var updatedPage = existingPage with
                 {
                     Name = sanitizer.Sanitize(properName),
+                    Ns = GetOrSetNamespace(db, ns),
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
@@ -134,8 +172,9 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
-            var page = coll.FindById(pageId);
+            var coll = db.GetCollection<Page>(Collections.Pages);
+            var page = coll.Query().Where(x => x.Id == pageId).Include(x => x.Ns).FirstOrDefault();
+            
             if (page is not object)
             {
                 _logger.LogWarning($"Delete attachment operation fails because page id {id} cannot be found in the database");
@@ -171,7 +210,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.Pages);
 
             var page = coll.FindById(id);
 

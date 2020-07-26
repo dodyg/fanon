@@ -38,7 +38,7 @@ class Render
         <link rel=""stylesheet"" href=""https://cdn.jsdelivr.net/npm/uikit@3.5.5/dist/css/uikit.min.css"" />
         {{ header }}
         <style>
-          .last-modified { font-size: small; }
+          .last-modified, .namespace { font-size: small; }
           a:visited { color: blue; }
           a:link { color: red; }
         </style>
@@ -55,8 +55,16 @@ class Render
             <div class=""uk-navbar-center"">
               <div class=""uk-navbar-item"">
                 <form action=""/new-page"">
-                  <input class=""uk-input uk-form-width-large"" type=""text"" name=""pageName"" placeholder=""Type desired page title here""></input>
-                  <input type=""submit""  class=""uk-button uk-button-default"" value=""Add New Page"">
+                  <input class=""uk-input uk-form-width-medium"" type=""text"" name=""pageName"" placeholder=""Type desired page title here""></input>
+                  <input type=""submit""  class=""uk-button uk-button-default"" value=""Add Page"">
+                </form>
+              </div>
+            </div>
+            <div class=""uk-navbar-right"">
+              <div class=""uk-navbar-item"">
+                <form action=""/search"">
+                  <input class=""uk-input uk-form-width-medium"" type=""text"" name=""term"" placeholder=""Enter search term here""></input>
+                  <button type=""submit"" class=""uk-button uk-button-default""><span uk-icon=""search""></span></button>
                 </form>
               </div>
             </div>
@@ -119,7 +127,7 @@ class Render
 
         var body = _templates.body.Render(new
         {
-            PageName = KebabToNormalCase(title),
+            PageName = KebabToNormalCase(Wiki.Split(title).pageName),
             Content = string.Join("\r", atBody?.Invoke() ?? new[] { "" }),
             AtSidePanel = string.Join("\r", atSidePanel?.Invoke() ?? new[] { "" }),
             AtFoot = string.Join("\r", atFoot?.Invoke() ?? new[] { "" })

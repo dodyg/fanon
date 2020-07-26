@@ -12,5 +12,6 @@
     <PackageReference Include="HtmlBuilders" Version="6.0.0" />
     <PackageReference Include="HtmlSanitizer" Version="5.0.331" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="9.0.1" />
+    <PackageReference Include="LunrCore" Version="2.3.8" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,3 @@
-using FluentValidation;
 using FluentValidation.AspNetCore;
 using Ganss.XSS;
 using HtmlBuilders;
@@ -13,12 +12,13 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using static HtmlBuilders.HtmlTags;
+using Lunr;
+using System.Globalization;
 
 const string DisplayDateFormat = "MMMM dd, yyyy";
 const string HomePageName = "home-page";
@@ -27,12 +27,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
   .AddSingleton<Wiki>()
   .AddSingleton<Render>()
+  .AddSingleton<Search>()
   .AddAntiforgery()
   .AddMemoryCache();
 
 builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Warning);
 
 var app = builder.Build();
+
+var search = app.Services.GetService<Search>()!;
+await search.BuildIndex();
 
 // Load home page
 app.MapGet("/", async context =>
@@ -52,10 +56,41 @@ app.MapGet("/", async context =>
         {
           RenderPageContent(page),
           RenderPageAttachments(page),
+          RenderPageNamespace(page),
           A.Href($"/edit?pageName={HomePageName}").Class("uk-button uk-button-default uk-button-small").Append("Edit").ToHtmlString()
         },
         atSidePanel: () => AllPages(wiki)
       ).ToString());
+});
+
+static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
+app.MapGet("/search", async context =>
+{
+    var term = context.Request.Query["term"];
+    var search = context.RequestServices.GetService<Search>()!;
+    var render = context.RequestServices.GetService<Render>()!;
+    var wiki = app.Services.GetService<Wiki>()!;
+    var all = wiki.ListAllPages();
+
+    var list = Ul;
+
+    await foreach (Result result in search.SearchTerm(term))
+    {
+        var id = Convert.ToInt32(result.DocumentReference);
+        var page = all.FirstOrDefault(x => x.Id == id);
+        if (page is object)
+        {
+            list = list.Append(Li.Append(A.Href($"/{page.NsName}").Append(KebabToNormalCase(page.NsName))));
+        }
+    }
+
+    await context.Response.WriteAsync(render.BuildPage($"Search '{term}'",
+      atBody: () =>
+      new[]
+      {
+       list.ToHtmlString()
+      }
+    ).ToString());
 });
 
 app.MapGet("/new-page", context =>
@@ -79,7 +114,6 @@ app.MapGet("/new-page", context =>
     return Task.CompletedTask;
 });
 
-
 // Edit a wiki page
 app.MapGet("/edit", async context =>
 {
@@ -100,7 +134,7 @@ app.MapGet("/edit", async context =>
       atBody: () =>
         new[]
         {
-          BuildForm(new PageInput(page!.Id, pageName, page.Content, null), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
+          BuildForm(PageInput.From(page!), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
           RenderPageAttachmentsForEdit(page!, antiForgery.GetAndStoreTokens(context))
         },
       atSidePanel: () =>
@@ -135,7 +169,7 @@ app.MapGet("/attachment", async context =>
 });
 
 // Load a wiki page
-app.MapGet("/{pageName}", async context =>
+app.MapGet("/{**pageName}", async context =>
 {
     var wiki = context.RequestServices.GetService<Wiki>()!;
     var render = context.RequestServices.GetService<Render>()!;
@@ -152,7 +186,8 @@ app.MapGet("/{pageName}", async context =>
           {
             RenderPageContent(page),
             RenderPageAttachments(page),
-            Div.Class("last-modified").Append("Last modified: " + page!.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString(),
+            RenderLastModified(page),
+            RenderPageNamespace(page),
             A.Href($"/edit?pageName={pageName}").Append("Edit").ToHtmlString()
           },
           atSidePanel: () => AllPages(wiki)
@@ -192,6 +227,9 @@ app.MapPost("/delete-page", async context =>
     else if (!isOk)
         app.Logger.LogError($"Unable to delete page id {id}");
 
+    if (isOk)
+      await context.RequestServices.GetService<Search>()!.BuildIndex();
+   
     context.Response.Redirect("/");
 });
 
@@ -234,11 +272,11 @@ app.MapPost("/delete-attachment", async context =>
         return;
     }
 
-    context.Response.Redirect($"/{page!.Name}");
+    context.Response.Redirect($"/{page!.NsName}");
 });
 
 // Add or update a wiki page
-app.MapPost("/{pageName}", async context =>
+app.MapPost("/{**pageName}", async context =>
 {
     var pageName = context.Request.RouteValues["pageName"] as string ?? "";
     var wiki = context.RequestServices.GetService<Wiki>()!;
@@ -271,7 +309,9 @@ app.MapPost("/{pageName}", async context =>
         return;
     }
 
-    context.Response.Redirect($"/{p!.Name}");
+    await context.RequestServices.GetService<Search>()!.BuildIndex();
+
+    context.Response.Redirect($"/{p!.NsName}");
 });
 
 await app.RunAsync();
@@ -284,7 +324,7 @@ static string[] AllPages(Wiki wiki) => new[]
   @"<ul class=""uk-list"">",
   string.Join("",
     wiki.ListAllPages().OrderBy(x => x.Name)
-      .Select(x => Li.Append(A.Href(x.Name).Append(x.Name)).ToHtmlString()
+      .Select(x => Li.Append(A.Href("/" + x.NsName).Append(x.NsName)).ToHtmlString()
     )
   ),
   "</ul>"
@@ -292,8 +332,6 @@ static string[] AllPages(Wiki wiki) => new[]
 
 static string[] AllPagesForEditing(Wiki wiki)
 {
-    static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
-
     return new[]
     {
       @"<span class=""uk-label"">Pages</span>",
@@ -302,7 +340,7 @@ static string[] AllPagesForEditing(Wiki wiki)
         wiki.ListAllPages().OrderBy(x => x.Name)
           .Select(x => Li.Append(Div.Class("uk-inline")
               .Append(Span.Class("uk-form-icon").Attribute("uk-icon", "icon: copy"))
-              .Append(Input.Text.Value($"[{KebabToNormalCase(x.Name)}](/{x.Name})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
+              .Append(Input.Text.Value($"[{x.NsName}](/{x.NsName})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
           ).ToHtmlString()
         )
       ),
@@ -317,6 +355,17 @@ static string RenderMarkdown(string str)
 }
 
 static string RenderPageContent(Page page) => RenderMarkdown(page.Content);
+
+static string RenderLastModified(Page page) => Div.Class("last-modified").Append("Last modified: " + page.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString();
+
+static string RenderPageNamespace(Page page)
+{
+    if (page.Ns is not object)
+        return string.Empty;
+
+    var div = Div.Class("namespace").Append($"Namespace: {page.Ns.Name}");
+    return div.ToHtmlString();
+}
 
 static string RenderDeletePageButton(Page page, AntiforgeryTokenSet antiForgery)
 {
@@ -462,58 +511,4 @@ static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiFo
     form = form.Append(submit);
 
     return form.ToHtmlString();
-}
-
-
-record Page
-{
-    public int Id { get; set; }
-
-    public string Name { get; set; } = string.Empty;
-
-    public string Content { get; set; } = string.Empty;
-
-    public DateTime LastModifiedUtc { get; set; }
-
-    public List<Attachment> Attachments { get; set; } = new();
-}
-
-record Attachment
-(
-    string FileId,
-
-    string FileName,
-
-    string MimeType,
-
-    DateTime LastModifiedUtc
-);
-
-record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
-{
-    public static PageInput From(IFormCollection form)
-    {
-        var (id, name, content) = (form["Id"], form["Name"], form["Content"]);
-
-        int? pageId = null;
-
-        if (!StringValues.IsNullOrEmpty(id))
-            pageId = Convert.ToInt32(id);
-
-        IFormFile? file = form.Files["Attachment"];
-
-        return new PageInput(pageId, name, content, file);
-    }
-}
-
-class PageInputValidator : AbstractValidator<PageInput>
-{
-    public PageInputValidator(string pageName, string homePageName)
-    {
-        RuleFor(x => x.Name).NotEmpty().WithMessage("Name is required");
-        if (pageName.Equals(homePageName, StringComparison.OrdinalIgnoreCase))
-            RuleFor(x => x.Name).Must(name => name.Equals(homePageName)).WithMessage($"You cannot modify home page name. Please keep it {homePageName}");
-
-        RuleFor(x => x.Content).NotEmpty().WithMessage("Content is required");
-    }
 }
