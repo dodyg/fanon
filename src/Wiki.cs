@@ -12,7 +12,7 @@ class Wiki
 {
     DateTime Timestamp() => DateTime.UtcNow;
 
-    const string PageCollectionName = "Pages";
+
     const string AllPagesKey = "AllPages";
     const double CacheAllPagesForMinutes = 30;
 
@@ -39,7 +39,7 @@ class Wiki
             return pages;
 
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(PageCollectionName);
+        var coll = db.GetCollection<Page>(Collections.PageCollectionName);
         var items = coll.Query().ToList();
 
         _cache.Set(AllPagesKey, items, new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheAllPagesForMinutes)));
@@ -50,7 +50,7 @@ class Wiki
     public Page? GetPage(string path)
     {
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(PageCollectionName);
+        var coll = db.GetCollection<Page>(Collections.PageCollectionName);
         coll.EnsureIndex(x => x.Name);
 
         return coll.Query()
@@ -64,7 +64,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
             coll.EnsureIndex(x => x.Name);
 
             Page? existingPage = input.Id.HasValue ? coll.FindOne(x => x.Id == input.Id) : null;
@@ -134,7 +134,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
             var page = coll.FindById(pageId);
             if (page is not object)
             {
@@ -171,7 +171,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
 
             var page = coll.FindById(id);
 
