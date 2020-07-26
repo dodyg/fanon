@@ -52,6 +52,7 @@ app.MapGet("/", async context =>
         {
           RenderPageContent(page),
           RenderPageAttachments(page),
+          RenderPageNamespace(page),
           A.Href($"/edit?pageName={HomePageName}").Class("uk-button uk-button-default uk-button-small").Append("Edit").ToHtmlString()
         },
         atSidePanel: () => AllPages(wiki)
@@ -100,7 +101,7 @@ app.MapGet("/edit", async context =>
       atBody: () =>
         new[]
         {
-          BuildForm(new PageInput(page!.Id, pageName, page.Content, null), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
+          BuildForm(PageInput.From(page!), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
           RenderPageAttachmentsForEdit(page!, antiForgery.GetAndStoreTokens(context))
         },
       atSidePanel: () =>
@@ -152,7 +153,8 @@ app.MapGet("/{**pageName}", async context =>
           {
             RenderPageContent(page),
             RenderPageAttachments(page),
-            Div.Class("last-modified").Append("Last modified: " + page!.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString(),
+            RenderLastModified(page),
+            RenderPageNamespace(page),
             A.Href($"/edit?pageName={pageName}").Append("Edit").ToHtmlString()
           },
           atSidePanel: () => AllPages(wiki)
@@ -317,6 +319,17 @@ static string RenderMarkdown(string str)
 }
 
 static string RenderPageContent(Page page) => RenderMarkdown(page.Content);
+
+static string RenderLastModified(Page page) => Div.Class("last-modified").Append("Last modified: " + page.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString();
+
+static string RenderPageNamespace(Page page)
+{
+  if (page.Ns is not object)
+    return string.Empty;
+
+  var div = Div.Append(page.Ns.Name);
+  return div.ToHtmlString();
+}
 
 static string RenderDeletePageButton(Page page, AntiforgeryTokenSet antiForgery)
 {

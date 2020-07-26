@@ -7,12 +7,10 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 class Wiki
 {
     DateTime Timestamp() => DateTime.UtcNow;
-
 
     const string AllPagesKey = "AllPages";
     const double CacheAllPagesForMinutes = 30;
@@ -30,7 +28,6 @@ class Wiki
 
     // Get the location of the LiteDB file.
     string GetDbPath() => Path.Combine(_env.ContentRootPath, "wiki.db");
-
 
     Namespace? GetOrSetNamespace(LiteDatabase db, string ns)
     {
@@ -90,6 +87,7 @@ class Wiki
 
         return coll.Query()
                 .Where(x => x.Name.Equals(path, StringComparison.OrdinalIgnoreCase))
+                .Include(x => x.Ns)
                 .FirstOrDefault();
     }
 
@@ -98,15 +96,14 @@ class Wiki
     {
         try
         {
-            var (@namespace, pageName) = Split(input.Name);
             using var db = new LiteDatabase(GetDbPath());
             var coll = db.GetCollection<Page>(Collections.Pages);
             coll.EnsureIndex(x => x.Name);
 
             Page? existingPage = input.Id.HasValue ? coll.FindOne(x => x.Id == input.Id) : null;
 
+
             var sanitizer = new HtmlSanitizer();
-            var properName = input.Name.ToString().Trim().Replace(' ', '-').ToLower();
 
             Attachment? attachment = null;
             if (!string.IsNullOrWhiteSpace(input.Attachment?.FileName))
@@ -123,11 +120,14 @@ class Wiki
                 var res = db.FileStorage.Upload(attachment.FileId, input.Attachment.FileName, stream);
             }
 
+            var (@namespace, pageName) = Split(input.Name);
+            var properName = pageName.ToString().Trim().Replace(' ', '-').ToLower();
             if (existingPage is not object)
             {
                 var newPage = new Page
                 {
                     Name = sanitizer.Sanitize(properName),
+                    Ns = @namespace != null ? GetOrSetNamespace(db, @namespace) : null,
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
@@ -145,6 +145,7 @@ class Wiki
                 var updatedPage = existingPage with
                 {
                     Name = sanitizer.Sanitize(properName),
+                    Ns = @namespace != null ? GetOrSetNamespace(db, @namespace) : null,
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };

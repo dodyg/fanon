@@ -60,6 +60,18 @@ record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
 
         return new PageInput(pageId, name, content, file);
     }
+
+    public static PageInput From(Page input)
+    {
+        var name = string.Empty;
+
+        if (input.Ns is object)
+            name = input.Ns.Name + "/" + input.Name;
+        else
+            name = input.Name;
+
+        return new PageInput(input.Id, name, input.Content, null);
+    }
 }
 
 class PageInputValidator : AbstractValidator<PageInput>
