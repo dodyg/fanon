@@ -236,7 +236,7 @@ app.MapPost("/delete-attachment", async context =>
         return;
     }
 
-    context.Response.Redirect($"/{page!.Name}");
+    context.Response.Redirect($"/{page!.NsName}");
 });
 
 // Add or update a wiki page
@@ -273,7 +273,7 @@ app.MapPost("/{**pageName}", async context =>
         return;
     }
 
-    context.Response.Redirect($"/{p!.Name}");
+    context.Response.Redirect($"/{p!.NsName}");
 });
 
 await app.RunAsync();
@@ -286,7 +286,7 @@ static string[] AllPages(Wiki wiki) => new[]
   @"<ul class=""uk-list"">",
   string.Join("",
     wiki.ListAllPages().OrderBy(x => x.Name)
-      .Select(x => Li.Append(A.Href(x.Name).Append(x.Name)).ToHtmlString()
+      .Select(x => Li.Append(A.Href(x.NsName).Append(x.NsName)).ToHtmlString()
     )
   ),
   "</ul>"
@@ -304,7 +304,7 @@ static string[] AllPagesForEditing(Wiki wiki)
         wiki.ListAllPages().OrderBy(x => x.Name)
           .Select(x => Li.Append(Div.Class("uk-inline")
               .Append(Span.Class("uk-form-icon").Attribute("uk-icon", "icon: copy"))
-              .Append(Input.Text.Value($"[{KebabToNormalCase(x.Name)}](/{x.Name})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
+              .Append(Input.Text.Value($"[{KebabToNormalCase(x.NsName)}](/{x.NsName})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
           ).ToHtmlString()
         )
       ),
@@ -327,7 +327,7 @@ static string RenderPageNamespace(Page page)
   if (page.Ns is not object)
     return string.Empty;
 
-  var div = Div.Append(page.Ns.Name);
+  var div = Div.Class("namespace").Append($"Namespace: {page.Ns.Name}");
   return div.ToHtmlString();
 }
 

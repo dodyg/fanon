@@ -27,6 +27,17 @@ record Page
 
     public string Name { get; set; } = string.Empty;
 
+    public string NsName 
+    { 
+        get 
+        {
+            if (Ns is object)
+                return Ns.Name + "/" + Name;
+            else
+                return Name;
+        }
+    }
+
     public string Content { get; set; } = string.Empty;
 
     public DateTime LastModifiedUtc { get; set; }
@@ -61,17 +72,7 @@ record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
         return new PageInput(pageId, name, content, file);
     }
 
-    public static PageInput From(Page input)
-    {
-        var name = string.Empty;
-
-        if (input.Ns is object)
-            name = input.Ns.Name + "/" + input.Name;
-        else
-            name = input.Name;
-
-        return new PageInput(input.Id, name, input.Content, null);
-    }
+    public static PageInput From(Page input) => new PageInput(input.Id, input.NsName, input.Content, null);
 }
 
 class PageInputValidator : AbstractValidator<PageInput>

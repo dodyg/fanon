@@ -72,7 +72,7 @@ class Wiki
 
         using var db = new LiteDatabase(GetDbPath());
         var coll = db.GetCollection<Page>(Collections.Pages);
-        var items = coll.Query().ToList();
+        var items = coll.Query().Include(x => x.Ns).ToList();
 
         _cache.Set(AllPagesKey, items, new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheAllPagesForMinutes)));
         return items;
@@ -81,12 +81,13 @@ class Wiki
     // Get a wiki page based on its path
     public Page? GetPage(string path)
     {
+        var (ns, pageName) = Split(path);
         using var db = new LiteDatabase(GetDbPath());
         var coll = db.GetCollection<Page>(Collections.Pages);
         coll.EnsureIndex(x => x.Name);
 
         return coll.Query()
-                .Where(x => x.Name.Equals(path, StringComparison.OrdinalIgnoreCase))
+                .Where(x => (x.Ns == null || (x.Ns.Name.Equals(ns, StringComparison.OrdinalIgnoreCase) == true)) && x.Name.Equals(pageName, StringComparison.OrdinalIgnoreCase))
                 .Include(x => x.Ns)
                 .FirstOrDefault();
     }
@@ -172,7 +173,8 @@ class Wiki
         {
             using var db = new LiteDatabase(GetDbPath());
             var coll = db.GetCollection<Page>(Collections.Pages);
-            var page = coll.FindById(pageId);
+            var page = coll.Query().Where(x => x.Id == pageId).Include(x => x.Ns).FirstOrDefault();
+            
             if (page is not object)
             {
                 _logger.LogWarning($"Delete attachment operation fails because page id {id} cannot be found in the database");

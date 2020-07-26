@@ -38,7 +38,7 @@ class Render
         <link rel=""stylesheet"" href=""https://cdn.jsdelivr.net/npm/uikit@3.5.5/dist/css/uikit.min.css"" />
         {{ header }}
         <style>
-          .last-modified { font-size: small; }
+          .last-modified, .namespace { font-size: small; }
           a:visited { color: blue; }
           a:link { color: red; }
         </style>
