@@ -55,8 +55,16 @@ class Render
             <div class=""uk-navbar-center"">
               <div class=""uk-navbar-item"">
                 <form action=""/new-page"">
-                  <input class=""uk-input uk-form-width-large"" type=""text"" name=""pageName"" placeholder=""Type desired page title here""></input>
-                  <input type=""submit""  class=""uk-button uk-button-default"" value=""Add New Page"">
+                  <input class=""uk-input uk-form-width-medium"" type=""text"" name=""pageName"" placeholder=""Type desired page title here""></input>
+                  <input type=""submit""  class=""uk-button uk-button-default"" value=""Add Page"">
+                </form>
+              </div>
+            </div>
+            <div class=""uk-navbar-right"">
+              <div class=""uk-navbar-item"">
+                <form action=""/search"">
+                  <input class=""uk-input uk-form-width-medium"" type=""text"" name=""term"" placeholder=""Enter search term here""></input>
+                  <button type=""submit"" class=""uk-button uk-button-default""><span uk-icon=""search""></span></button>
                 </form>
               </div>
             </div>
