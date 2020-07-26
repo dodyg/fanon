@@ -29,9 +29,11 @@ class Wiki
     // Get the location of the LiteDB file.
     string GetDbPath() => Path.Combine(_env.ContentRootPath, "wiki.db");
 
-    Namespace? GetOrSetNamespace(LiteDatabase db, string ns)
+    Namespace? GetOrSetNamespace(LiteDatabase db, string? ns)
     {
-        if (string.IsNullOrWhiteSpace(ns?.Trim()))
+        ns = ns?.Trim();
+
+        if (string.IsNullOrWhiteSpace(ns))
             return null;
 
         var coll = db.GetCollection<Namespace>(Collections.Namespaces);
@@ -58,7 +60,6 @@ class Wiki
         var pageName = split[^1];
         var ns = string.Join("/", split[0..^1]);
 
-        Console.WriteLine($"{ns} => {pageName}");
         return (ns, pageName);
     }
 
@@ -103,7 +104,6 @@ class Wiki
 
             Page? existingPage = input.Id.HasValue ? coll.FindOne(x => x.Id == input.Id) : null;
 
-
             var sanitizer = new HtmlSanitizer();
 
             Attachment? attachment = null;
@@ -121,14 +121,14 @@ class Wiki
                 var res = db.FileStorage.Upload(attachment.FileId, input.Attachment.FileName, stream);
             }
 
-            var (@namespace, pageName) = Split(input.Name);
+            var (ns, pageName) = Split(input.Name);
             var properName = pageName.ToString().Trim().Replace(' ', '-').ToLower();
             if (existingPage is not object)
             {
                 var newPage = new Page
                 {
                     Name = sanitizer.Sanitize(properName),
-                    Ns = @namespace != null ? GetOrSetNamespace(db, @namespace) : null,
+                    Ns = GetOrSetNamespace(db, ns),
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
@@ -146,7 +146,7 @@ class Wiki
                 var updatedPage = existingPage with
                 {
                     Name = sanitizer.Sanitize(properName),
-                    Ns = @namespace != null ? GetOrSetNamespace(db, @namespace) : null,
+                    Ns = GetOrSetNamespace(db, ns),
                     Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
