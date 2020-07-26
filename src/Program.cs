@@ -17,6 +17,8 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using static HtmlBuilders.HtmlTags;
+using Lunr;
+using System.Globalization;
 
 const string DisplayDateFormat = "MMMM dd, yyyy";
 const string HomePageName = "home-page";
@@ -25,12 +27,46 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
   .AddSingleton<Wiki>()
   .AddSingleton<Render>()
+  .AddSingleton<Search>()
   .AddAntiforgery()
   .AddMemoryCache();
 
 builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Warning);
 
 var app = builder.Build();
+
+var search = app.Services.GetService<Search>()!;
+await search.BuildIndex();
+
+static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
+app.MapGet("/search", async context =>
+{
+    var term = context.Request.Query["term"];
+    var search = context.RequestServices.GetService<Search>()!;
+    var render = context.RequestServices.GetService<Render>()!;
+    var wiki = app.Services.GetService<Wiki>()!;
+    var all = wiki.ListAllPages();
+
+    var list = Ul;
+
+    await foreach (Result result in search.SearchTerm(term))
+    {
+        var id = Convert.ToInt32(result.DocumentReference);
+        var page = all.FirstOrDefault(x => x.Id == id);
+        if (page is object)
+        {
+            list = list.Append(Li.Append(A.Href($"/{page.NsName}").Append(KebabToNormalCase(page.NsName))));
+        }
+    }
+
+    await context.Response.WriteAsync(render.BuildPage($"Search {term}",
+      atBody: () =>
+      new[]
+      {
+       list.ToHtmlString()
+      }
+    ).ToString());
+});
 
 // Load home page
 app.MapGet("/", async context =>
@@ -77,7 +113,6 @@ app.MapGet("/new-page", context =>
     context.Response.Redirect($"/{page}");
     return Task.CompletedTask;
 });
-
 
 // Edit a wiki page
 app.MapGet("/edit", async context =>
@@ -192,6 +227,9 @@ app.MapPost("/delete-page", async context =>
     else if (!isOk)
         app.Logger.LogError($"Unable to delete page id {id}");
 
+    if (isOk)
+      await context.RequestServices.GetService<Search>()!.BuildIndex();
+   
     context.Response.Redirect("/");
 });
 
@@ -271,6 +309,8 @@ app.MapPost("/{**pageName}", async context =>
         return;
     }
 
+    await context.RequestServices.GetService<Search>()!.BuildIndex();
+
     context.Response.Redirect($"/{p!.NsName}");
 });
 
@@ -320,11 +360,11 @@ static string RenderLastModified(Page page) => Div.Class("last-modified").Append
 
 static string RenderPageNamespace(Page page)
 {
-  if (page.Ns is not object)
-    return string.Empty;
+    if (page.Ns is not object)
+        return string.Empty;
 
-  var div = Div.Class("namespace").Append($"Namespace: {page.Ns.Name}");
-  return div.ToHtmlString();
+    var div = Div.Class("namespace").Append($"Namespace: {page.Ns.Name}");
+    return div.ToHtmlString();
 }
 
 static string RenderDeletePageButton(Page page, AntiforgeryTokenSet antiForgery)
