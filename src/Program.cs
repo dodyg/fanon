@@ -38,36 +38,6 @@ var app = builder.Build();
 var search = app.Services.GetService<Search>()!;
 await search.BuildIndex();
 
-static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
-app.MapGet("/search", async context =>
-{
-    var term = context.Request.Query["term"];
-    var search = context.RequestServices.GetService<Search>()!;
-    var render = context.RequestServices.GetService<Render>()!;
-    var wiki = app.Services.GetService<Wiki>()!;
-    var all = wiki.ListAllPages();
-
-    var list = Ul;
-
-    await foreach (Result result in search.SearchTerm(term))
-    {
-        var id = Convert.ToInt32(result.DocumentReference);
-        var page = all.FirstOrDefault(x => x.Id == id);
-        if (page is object)
-        {
-            list = list.Append(Li.Append(A.Href($"/{page.NsName}").Append(KebabToNormalCase(page.NsName))));
-        }
-    }
-
-    await context.Response.WriteAsync(render.BuildPage($"Search {term}",
-      atBody: () =>
-      new[]
-      {
-       list.ToHtmlString()
-      }
-    ).ToString());
-});
-
 // Load home page
 app.MapGet("/", async context =>
 {
@@ -91,6 +61,36 @@ app.MapGet("/", async context =>
         },
         atSidePanel: () => AllPages(wiki)
       ).ToString());
+});
+
+static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
+app.MapGet("/search", async context =>
+{
+    var term = context.Request.Query["term"];
+    var search = context.RequestServices.GetService<Search>()!;
+    var render = context.RequestServices.GetService<Render>()!;
+    var wiki = app.Services.GetService<Wiki>()!;
+    var all = wiki.ListAllPages();
+
+    var list = Ul;
+
+    await foreach (Result result in search.SearchTerm(term))
+    {
+        var id = Convert.ToInt32(result.DocumentReference);
+        var page = all.FirstOrDefault(x => x.Id == id);
+        if (page is object)
+        {
+            list = list.Append(Li.Append(A.Href($"/{page.NsName}").Append(KebabToNormalCase(page.NsName))));
+        }
+    }
+
+    await context.Response.WriteAsync(render.BuildPage($"Search '{term}'",
+      atBody: () =>
+      new[]
+      {
+       list.ToHtmlString()
+      }
+    ).ToString());
 });
 
 app.MapGet("/new-page", context =>
