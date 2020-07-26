@@ -286,7 +286,7 @@ static string[] AllPages(Wiki wiki) => new[]
   @"<ul class=""uk-list"">",
   string.Join("",
     wiki.ListAllPages().OrderBy(x => x.Name)
-      .Select(x => Li.Append(A.Href(x.NsName).Append(x.NsName)).ToHtmlString()
+      .Select(x => Li.Append(A.Href("/" + x.NsName).Append(x.NsName)).ToHtmlString()
     )
   ),
   "</ul>"
@@ -294,8 +294,6 @@ static string[] AllPages(Wiki wiki) => new[]
 
 static string[] AllPagesForEditing(Wiki wiki)
 {
-    static string KebabToNormalCase(string txt) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(txt.Replace('-', ' '));
-
     return new[]
     {
       @"<span class=""uk-label"">Pages</span>",
@@ -304,7 +302,7 @@ static string[] AllPagesForEditing(Wiki wiki)
         wiki.ListAllPages().OrderBy(x => x.Name)
           .Select(x => Li.Append(Div.Class("uk-inline")
               .Append(Span.Class("uk-form-icon").Attribute("uk-icon", "icon: copy"))
-              .Append(Input.Text.Value($"[{KebabToNormalCase(x.NsName)}](/{x.NsName})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
+              .Append(Input.Text.Value($"[{x.NsName}](/{x.NsName})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
           ).ToHtmlString()
         )
       ),
