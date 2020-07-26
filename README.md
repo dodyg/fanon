@@ -19,6 +19,7 @@ This is a Single File Application (SFA) that provide wiki functionality.
 - You can delete attachments
 - You can delete pages
 - It has pages and attachment markdown linking helpers
+- Namespace support. Each namespace is marked by url segment, e.g. `/recruitment/about` means `about` page under `recruitment` namespace. It can also go multiple levels of namespace e.g. `/recruitment/2020/about` -- the namespace is `recruitment/2020`.
 
 All the code is contained within `Program.cs`.
 
