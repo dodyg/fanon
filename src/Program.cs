@@ -135,7 +135,7 @@ app.MapGet("/attachment", async context =>
 });
 
 // Load a wiki page
-app.MapGet("/{pageName}", async context =>
+app.MapGet("/{**pageName}", async context =>
 {
     var wiki = context.RequestServices.GetService<Wiki>()!;
     var render = context.RequestServices.GetService<Render>()!;
@@ -238,7 +238,7 @@ app.MapPost("/delete-attachment", async context =>
 });
 
 // Add or update a wiki page
-app.MapPost("/{pageName}", async context =>
+app.MapPost("/{**pageName}", async context =>
 {
     var pageName = context.Request.RouteValues["pageName"] as string ?? "";
     var wiki = context.RequestServices.GetService<Wiki>()!;

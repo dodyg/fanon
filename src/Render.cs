@@ -119,7 +119,7 @@ class Render
 
         var body = _templates.body.Render(new
         {
-            PageName = KebabToNormalCase(title),
+            PageName = KebabToNormalCase(Wiki.Split(title).pageName),
             Content = string.Join("\r", atBody?.Invoke() ?? new[] { "" }),
             AtSidePanel = string.Join("\r", atSidePanel?.Invoke() ?? new[] { "" }),
             AtFoot = string.Join("\r", atFoot?.Invoke() ?? new[] { "" })

@@ -8,10 +8,9 @@ using System.Collections.Generic;
 
 static class Collections 
 {
+    public const string Pages = "Pages";
 
-    public const string PageCollectionName = "Pages";
-
-    public const string NamespaceCollectionName = "Namespaces";    
+    public const string Namespaces = "Namespaces";    
 }
 
 record Namespace 
@@ -23,7 +22,7 @@ record Page
 {
     public int Id { get; set; }
 
-    [BsonRef(Collections.NamespaceCollectionName)]
+    [BsonRef(Collections.Namespaces)]
     public Namespace? Ns { get; set; }
 
     public string Name { get; set; } = string.Empty;

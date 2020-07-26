@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 class Wiki
 {
@@ -30,6 +31,40 @@ class Wiki
     // Get the location of the LiteDB file.
     string GetDbPath() => Path.Combine(_env.ContentRootPath, "wiki.db");
 
+
+    Namespace? GetOrSetNamespace(LiteDatabase db, string ns)
+    {
+        if (string.IsNullOrWhiteSpace(ns?.Trim()))
+            return null;
+
+        var coll = db.GetCollection<Namespace>(Collections.Namespaces);
+
+        var n = coll.FindOne(x => x.Name.Equals(ns, StringComparison.OrdinalIgnoreCase));
+
+        if (n is not object)
+        {
+            var newNs = new Namespace(default(int), ns, string.Empty);
+            var documentId = coll.Insert(newNs);
+            return coll.FindById(documentId);
+        }
+
+        return n;
+    }
+
+    public static (string? ns, string pageName)Split(string uri)
+    {
+        var split = uri.Split('/');
+
+        if (split.Length == 0)
+            return (null, uri);
+
+        var pageName = split[^1];
+        var ns = string.Join("/", split[0..^1]);
+
+        Console.WriteLine($"{ns} => {pageName}");
+        return (ns, pageName);
+    }
+
     // List all the available wiki pages. It is cached for 30 minutes.
     public List<Page> ListAllPages()
     {
@@ -39,7 +74,7 @@ class Wiki
             return pages;
 
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(Collections.PageCollectionName);
+        var coll = db.GetCollection<Page>(Collections.Pages);
         var items = coll.Query().ToList();
 
         _cache.Set(AllPagesKey, items, new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheAllPagesForMinutes)));
@@ -50,7 +85,7 @@ class Wiki
     public Page? GetPage(string path)
     {
         using var db = new LiteDatabase(GetDbPath());
-        var coll = db.GetCollection<Page>(Collections.PageCollectionName);
+        var coll = db.GetCollection<Page>(Collections.Pages);
         coll.EnsureIndex(x => x.Name);
 
         return coll.Query()
@@ -63,8 +98,9 @@ class Wiki
     {
         try
         {
+            var (@namespace, pageName) = Split(input.Name);
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.Pages);
             coll.EnsureIndex(x => x.Name);
 
             Page? existingPage = input.Id.HasValue ? coll.FindOne(x => x.Id == input.Id) : null;
@@ -134,7 +170,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.Pages);
             var page = coll.FindById(pageId);
             if (page is not object)
             {
@@ -171,7 +207,7 @@ class Wiki
         try
         {
             using var db = new LiteDatabase(GetDbPath());
-            var coll = db.GetCollection<Page>(Collections.PageCollectionName);
+            var coll = db.GetCollection<Page>(Collections.Pages);
 
             var page = coll.FindById(id);
 
