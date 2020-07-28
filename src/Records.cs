@@ -47,8 +47,8 @@ record Page
         var idx = Contents.FindIndex(x => x.Id == content.Id);
         if (idx > -1)
         {
-            var existing = Contents[0];
-            Contents[0] = existing with 
+            var existing = Contents[idx];
+            Contents[idx] = existing with 
             {
                 Meta = content.Meta,
                 Body = content.Body
@@ -122,13 +122,23 @@ record PageInput(int? Id, string Name, string? ContentId, string Content, IFormF
         return new PageInput(pageId, name, contentId, content, file);
     }
 
-    public static PageInput From(Page input) => new PageInput(
-        Id: input.Id, 
-        Name: input.NsName, 
-        ContentId: input.Contents[0].Id.ToString(), 
-        Content: input.Contents[0].Body, 
-        Attachment: null
-    );
+    public static PageInput From(Page input, string? contentId) 
+    {
+        Content? cnt = null;
+
+        if (!string.IsNullOrWhiteSpace(contentId))
+        {
+            cnt = input.Contents.Find(x => x.Id.ToString() == contentId);
+        }
+
+        return new PageInput(
+            Id: input.Id, 
+            Name: input.NsName, 
+            ContentId: contentId, 
+            Content: cnt?.Body, 
+            Attachment: null
+        );
+    } 
 }
 
 class PageInputValidator : AbstractValidator<PageInput>
