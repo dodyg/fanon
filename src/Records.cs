@@ -42,6 +42,22 @@ record Page
 
     public List<Content> Contents { get; set; } = new List<Content>();
 
+    public void UpdateOrInsertContent(Content content)
+    {
+        var idx = Contents.FindIndex(x => x.Id == content.Id);
+        if (idx > -1)
+        {
+            var existing = Contents[0];
+            Contents[0] = existing with 
+            {
+                Meta = content.Meta,
+                Body = content.Body
+            };
+        }
+        else 
+            Contents.Add(content);
+    }
+
     public string[] GetContents () 
     {
         return Contents.Select(x => x.Body).ToArray();
@@ -65,6 +81,13 @@ record Content
         
     }
 
+    public Content(string? id, string body)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+            Id = new ObjectId(id);
+        
+        Body = body;
+    }
     public Content(string body)
     {
         Body = body;
@@ -83,11 +106,11 @@ record Attachment
     DateTime LastModifiedUtc
 );
 
-record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
+record PageInput(int? Id, string Name, string? ContentId, string Content, IFormFile? Attachment)
 {
     public static PageInput From(IFormCollection form)
     {
-        var (id, name, content) = (form["Id"], form["Name"], form["Content"]);
+        var (id, name, contentId, content) = (form["Id"], form["Name"], form["ContentId"], form["Content"]);
 
         int? pageId = null;
 
@@ -96,10 +119,16 @@ record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
 
         IFormFile? file = form.Files["Attachment"];
 
-        return new PageInput(pageId, name, content, file);
+        return new PageInput(pageId, name, contentId, content, file);
     }
 
-    public static PageInput From(Page input) => new PageInput(input.Id, input.NsName, input.Contents[0].Body, null);
+    public static PageInput From(Page input) => new PageInput(
+        Id: input.Id, 
+        Name: input.NsName, 
+        ContentId: input.Contents[0].Id.ToString(), 
+        Content: input.Contents[0].Body, 
+        Attachment: null
+    );
 }
 
 class PageInputValidator : AbstractValidator<PageInput>

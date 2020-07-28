@@ -150,6 +150,8 @@ class Wiki
                     LastModifiedUtc = Timestamp()
                 };
 
+                updatedPage.UpdateOrInsertContent(new Content(input.ContentId, input.Content));
+
                 if (attachment is object)
                     updatedPage.Attachments.Add(attachment);
 

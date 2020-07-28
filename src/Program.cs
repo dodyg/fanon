@@ -199,7 +199,15 @@ app.MapGet("/{**pageName}", async context =>
         atBody: () =>
           new[]
           {
-            BuildForm(new PageInput(null, pageName, string.Empty, null), path: pageName, antiForgery: antiForgery.GetAndStoreTokens(context))
+            BuildForm(new PageInput
+            (
+              Id: null, 
+              Name: pageName, 
+              ContentId: string.Empty, 
+              Content: string.Empty, 
+              Attachment: null
+            ), 
+            path: pageName, antiForgery: antiForgery.GetAndStoreTokens(context))
           },
         atSidePanel: () => AllPagesForEditing(wiki)).ToString());
     }
@@ -459,6 +467,8 @@ static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiFo
         .Append(Input.Text.Class("uk-input").Name("Name").Value(input.Name))
       );
 
+    var contentIdField = Input.Hidden.Name("ContentId").Value(input.ContentId ?? "");
+
     var contentField = Div
       .Append(Label.Class("uk-form-label").Append(nameof(input.Content)))
       .Append(Div.Class("uk-form-controls")
@@ -500,6 +510,7 @@ static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiFo
                .Attribute("action", $"/{path}")
                  .Append(antiForgeryField)
                  .Append(nameField)
+                 .Append(contentIdField)
                  .Append(contentField)
                  .Append(attachmentField);
 
