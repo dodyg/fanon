@@ -44,7 +44,7 @@ class Search
                     {
                     { "id", p.Id.ToString() },
                     { "pageName", p.NsName },
-                    { "content", p.Content }
+                    { "content", string.Join(' ', p.Contents) }
                     });
                 }
             }

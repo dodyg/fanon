@@ -348,13 +348,14 @@ static string[] AllPagesForEditing(Wiki wiki)
     };
 }
 
-static string RenderMarkdown(string str)
+static string RenderMarkdown(string[] str)
 {
+    Console.WriteLine($"length {str.Length} " + str[0]);
     var sanitizer = new HtmlSanitizer();
-    return sanitizer.Sanitize(Markdown.ToHtml(str, new MarkdownPipelineBuilder().UseSoftlineBreakAsHardlineBreak().UseAdvancedExtensions().Build()));
+    return sanitizer.Sanitize(Markdown.ToHtml(string.Join("\n", str), new MarkdownPipelineBuilder().UseSoftlineBreakAsHardlineBreak().UseAdvancedExtensions().Build()));
 }
 
-static string RenderPageContent(Page page) => RenderMarkdown(page.Content);
+static string RenderPageContent(Page page) => RenderMarkdown(page.GetContents());
 
 static string RenderLastModified(Page page) => Div.Class("last-modified").Append("Last modified: " + page.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString();
 

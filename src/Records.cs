@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 static class Collections 
 {
@@ -27,6 +28,7 @@ record Page
 
     public string Name { get; set; } = string.Empty;
 
+    [BsonIgnore]
     public string NsName 
     { 
         get 
@@ -38,11 +40,36 @@ record Page
         }
     }
 
-    public string Content { get; set; } = string.Empty;
+    public List<Content> Contents { get; set; } = new List<Content>();
+
+    public string[] GetContents () 
+    {
+        return Contents.Select(x => x.Body).ToArray();
+    }
 
     public DateTime LastModifiedUtc { get; set; }
 
     public List<Attachment> Attachments { get; set; } = new();
+}
+
+record Content
+{
+    public ObjectId Id { get; set;} = ObjectId.NewObjectId();
+
+    public Dictionary<string, string> Meta { get; set; } = new Dictionary<string, string>();
+
+    public string Body { get; set; } = string.Empty;
+
+    public Content()
+    {
+        
+    }
+
+    public Content(string body)
+    {
+        Body = body;
+    }
+
 }
 
 record Attachment
@@ -72,7 +99,7 @@ record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
         return new PageInput(pageId, name, content, file);
     }
 
-    public static PageInput From(Page input) => new PageInput(input.Id, input.NsName, input.Content, null);
+    public static PageInput From(Page input) => new PageInput(input.Id, input.NsName, input.Contents[0].Body, null);
 }
 
 class PageInputValidator : AbstractValidator<PageInput>

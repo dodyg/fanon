@@ -129,7 +129,7 @@ class Wiki
                 {
                     Name = sanitizer.Sanitize(properName),
                     Ns = GetOrSetNamespace(db, ns),
-                    Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
+                    Contents = new List<Content> { new Content (input.Content) }, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
 
@@ -147,7 +147,6 @@ class Wiki
                 {
                     Name = sanitizer.Sanitize(properName),
                     Ns = GetOrSetNamespace(db, ns),
-                    Content = input.Content, //Do not sanitize on input because it will impact some markdown tag such as >. We do it on the output instead.
                     LastModifiedUtc = Timestamp()
                 };
 
