@@ -135,7 +135,7 @@ record PageInput(int? Id, string Name, string? ContentId, string Content, IFormF
             Id: input.Id, 
             Name: input.NsName, 
             ContentId: contentId, 
-            Content: cnt?.Body, 
+            Content: cnt?.Body ?? string.Empty, 
             Attachment: null
         );
     } 

@@ -5,7 +5,7 @@ This is an experimental wiki to figure out better ways to write and organize ide
 - Federated Wiki
 - Numbered Entries
 
-**Note**. This wiki requires preview features of C# 9 that is only available on [.NET 5 SDK Preview 7](https://dotnet.microsoft.com/download/dotnet/5.0).
+**Note**. This wiki requires preview features of C# 9 that is only available on [.NET 5 SDK](https://dotnet.microsoft.com/download/dotnet/5.0).
 
 - It supports markdown
 - You can rename pages
