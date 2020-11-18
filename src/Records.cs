@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 static class Collections 
 {
@@ -27,6 +28,7 @@ record Page
 
     public string Name { get; set; } = string.Empty;
 
+    [BsonIgnore]
     public string NsName 
     { 
         get 
@@ -38,11 +40,59 @@ record Page
         }
     }
 
-    public string Content { get; set; } = string.Empty;
+    public List<Content> Contents { get; set; } = new List<Content>();
+
+    public void UpdateOrInsertContent(Content content)
+    {
+        var idx = Contents.FindIndex(x => x.Id == content.Id);
+        if (idx > -1)
+        {
+            var existing = Contents[idx];
+            Contents[idx] = existing with 
+            {
+                Meta = content.Meta,
+                Body = content.Body
+            };
+        }
+        else 
+            Contents.Add(content);
+    }
+
+    public string[] GetContents () 
+    {
+        return Contents.Select(x => x.Body).ToArray();
+    }
 
     public DateTime LastModifiedUtc { get; set; }
 
     public List<Attachment> Attachments { get; set; } = new();
+}
+
+record Content
+{
+    public ObjectId Id { get; set;} = ObjectId.NewObjectId();
+
+    public Dictionary<string, string> Meta { get; set; } = new Dictionary<string, string>();
+
+    public string Body { get; set; } = string.Empty;
+
+    public Content()
+    {
+        
+    }
+
+    public Content(string? id, string body)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+            Id = new ObjectId(id);
+        
+        Body = body;
+    }
+    public Content(string body)
+    {
+        Body = body;
+    }
+
 }
 
 record Attachment
@@ -56,11 +106,11 @@ record Attachment
     DateTime LastModifiedUtc
 );
 
-record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
+record PageInput(int? Id, string Name, string? ContentId, string Content, IFormFile? Attachment)
 {
     public static PageInput From(IFormCollection form)
     {
-        var (id, name, content) = (form["Id"], form["Name"], form["Content"]);
+        var (id, name, contentId, content) = (form["Id"], form["Name"], form["ContentId"], form["Content"]);
 
         int? pageId = null;
 
@@ -69,10 +119,26 @@ record PageInput(int? Id, string Name, string Content, IFormFile? Attachment)
 
         IFormFile? file = form.Files["Attachment"];
 
-        return new PageInput(pageId, name, content, file);
+        return new PageInput(pageId, name, contentId, content, file);
     }
 
-    public static PageInput From(Page input) => new PageInput(input.Id, input.NsName, input.Content, null);
+    public static PageInput From(Page input, string? contentId) 
+    {
+        Content? cnt = null;
+
+        if (!string.IsNullOrWhiteSpace(contentId))
+        {
+            cnt = input.Contents.Find(x => x.Id.ToString() == contentId);
+        }
+
+        return new PageInput(
+            Id: input.Id, 
+            Name: input.NsName, 
+            ContentId: contentId, 
+            Content: cnt?.Body ?? string.Empty, 
+            Attachment: null
+        );
+    } 
 }
 
 class PageInputValidator : AbstractValidator<PageInput>

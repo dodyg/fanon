@@ -41,6 +41,8 @@ class Render
           .last-modified, .namespace { font-size: small; }
           a:visited { color: blue; }
           a:link { color: red; }
+          .edit-segment { font-size: small; text-align: right; }
+          .edit-segment > a { color: grey; }
         </style>
       "),
       body: Scriban.Template.Parse(@"

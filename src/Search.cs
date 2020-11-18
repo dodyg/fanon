@@ -1,22 +1,6 @@
-using FluentValidation.AspNetCore;
-using Ganss.XSS;
-using HtmlBuilders;
-using Markdig;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
-using Microsoft.Net.Http.Headers;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using static HtmlBuilders.HtmlTags;
 using Lunr;
 using System.Globalization;
 
@@ -60,7 +44,7 @@ class Search
                     {
                     { "id", p.Id.ToString() },
                     { "pageName", p.NsName },
-                    { "content", p.Content }
+                    { "content", string.Join(' ', p.Contents) }
                     });
                 }
             }

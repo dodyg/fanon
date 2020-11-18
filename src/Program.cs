@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using static HtmlBuilders.HtmlTags;
 using Lunr;
 using System.Globalization;
+using System.Text;
 
 const string DisplayDateFormat = "MMMM dd, yyyy";
 const string HomePageName = "home-page";
@@ -54,10 +55,10 @@ app.MapGet("/", async context =>
     await context.Response.WriteAsync(render.BuildPage(HomePageName, atBody: () =>
         new[]
         {
-          RenderPageContent(page),
+          RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={HomePageName}&contentId={contentId}").Append("Edit")),
           RenderPageAttachments(page),
           RenderPageNamespace(page),
-          A.Href($"/edit?pageName={HomePageName}").Class("uk-button uk-button-default uk-button-small").Append("Edit").ToHtmlString()
+          A.Href($"/edit?pageName={HomePageName}").Class("uk-button uk-button-default uk-button-small").Append("Add Segment").ToHtmlString()
         },
         atSidePanel: () => AllPages(wiki)
       ).ToString());
@@ -122,6 +123,7 @@ app.MapGet("/edit", async context =>
 
     var antiForgery = context.RequestServices.GetService<IAntiforgery>()!;
     var pageName = context.Request.Query["pageName"];
+    var contentId = context.Request.Query["contentId"];
 
     Page? page = wiki.GetPage(pageName);
     if (page is not object)
@@ -134,7 +136,7 @@ app.MapGet("/edit", async context =>
       atBody: () =>
         new[]
         {
-          BuildForm(PageInput.From(page!), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
+          BuildForm(PageInput.From(page!, contentId), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
           RenderPageAttachmentsForEdit(page!, antiForgery.GetAndStoreTokens(context))
         },
       atSidePanel: () =>
@@ -184,7 +186,7 @@ app.MapGet("/{**pageName}", async context =>
         await context.Response.WriteAsync(render.BuildPage(pageName, atBody: () =>
           new[]
           {
-            RenderPageContent(page),
+            RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={pageName}&contentId={contentId}").Append("Edit")),
             RenderPageAttachments(page),
             RenderLastModified(page),
             RenderPageNamespace(page),
@@ -199,7 +201,15 @@ app.MapGet("/{**pageName}", async context =>
         atBody: () =>
           new[]
           {
-            BuildForm(new PageInput(null, pageName, string.Empty, null), path: pageName, antiForgery: antiForgery.GetAndStoreTokens(context))
+            BuildForm(new PageInput
+            (
+              Id: null, 
+              Name: pageName, 
+              ContentId: string.Empty, 
+              Content: string.Empty, 
+              Attachment: null
+            ), 
+            path: pageName, antiForgery: antiForgery.GetAndStoreTokens(context))
           },
         atSidePanel: () => AllPagesForEditing(wiki)).ToString());
     }
@@ -354,7 +364,23 @@ static string RenderMarkdown(string str)
     return sanitizer.Sanitize(Markdown.ToHtml(str, new MarkdownPipelineBuilder().UseSoftlineBreakAsHardlineBreak().UseAdvancedExtensions().Build()));
 }
 
-static string RenderPageContent(Page page) => RenderMarkdown(page.Content);
+static string RenderPageContent(Page page, Func<string, HtmlTag>? proc) 
+{
+  var str = new StringBuilder();
+  foreach(var c in page.Contents)
+  {
+    str.AppendLine(RenderMarkdown(c.Body));
+    if (proc != null)
+    {
+      var tag = proc(c.Id?.ToString() ?? string.Empty)!;
+      str.AppendLine(Div.Class("edit-segment").Append(tag).ToHtmlString());  
+    }
+  }
+
+  var rtr = str.ToString();
+  Console.WriteLine(rtr);
+  return rtr;
+} 
 
 static string RenderLastModified(Page page) => Div.Class("last-modified").Append("Last modified: " + page.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString();
 
@@ -458,6 +484,8 @@ static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiFo
         .Append(Input.Text.Class("uk-input").Name("Name").Value(input.Name))
       );
 
+    var contentIdField = Input.Hidden.Name("ContentId").Value(input.ContentId ?? "");
+
     var contentField = Div
       .Append(Label.Class("uk-form-label").Append(nameof(input.Content)))
       .Append(Div.Class("uk-form-controls")
@@ -499,6 +527,7 @@ static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiFo
                .Attribute("action", $"/{path}")
                  .Append(antiForgeryField)
                  .Append(nameField)
+                 .Append(contentIdField)
                  .Append(contentField)
                  .Append(attachmentField);
 
