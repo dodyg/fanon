@@ -21,7 +21,6 @@ using Lunr;
 using System.Globalization;
 using System.Text;
 
-const string DisplayDateFormat = "MMMM dd, yyyy";
 const string HomePageName = "home-page";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,12 +54,12 @@ app.MapGet("/", async context =>
     await context.Response.WriteAsync(render.BuildPage(HomePageName, atBody: () =>
         new[]
         {
-          RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={HomePageName}&contentId={contentId}").Append("Edit")),
-          RenderPageAttachments(page),
-          RenderPageNamespace(page),
+          UI.RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={HomePageName}&contentId={contentId}").Append("Edit")),
+          UI.RenderPageAttachments(page),
+          UI.RenderPageNamespace(page),
           A.Href($"/edit?pageName={HomePageName}").Class("uk-button uk-button-default uk-button-small").Append("Add Segment").ToHtmlString()
         },
-        atSidePanel: () => AllPages(wiki)
+        atSidePanel: () => UI.AllPages(wiki)
       ).ToString());
 });
 
@@ -136,18 +135,18 @@ app.MapGet("/edit", async context =>
       atBody: () =>
         new[]
         {
-          BuildForm(PageInput.From(page!, contentId), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
-          RenderPageAttachmentsForEdit(page!, antiForgery.GetAndStoreTokens(context))
+          UI.BuildForm(PageInput.From(page!, contentId), path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context)),
+          UI.RenderPageAttachmentsForEdit(page!, antiForgery.GetAndStoreTokens(context))
         },
       atSidePanel: () =>
       {
           var list = new List<string>();
           // Do not show delete button on home page
           if (!pageName!.ToString().Equals(HomePageName, StringComparison.Ordinal))
-              list.Add(RenderDeletePageButton(page!, antiForgery: antiForgery.GetAndStoreTokens(context)));
+              list.Add(UI.RenderDeletePageButton(page!, antiForgery: antiForgery.GetAndStoreTokens(context)));
 
           list.Add(Br.ToHtmlString());
-          list.AddRange(AllPagesForEditing(wiki));
+          list.AddRange(UI.AllPagesForEditing(wiki));
           return list;
       }).ToString());
 });
@@ -186,13 +185,13 @@ app.MapGet("/{**pageName}", async context =>
         await context.Response.WriteAsync(render.BuildPage(pageName, atBody: () =>
           new[]
           {
-            RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={pageName}&contentId={contentId}").Append("Edit")),
-            RenderPageAttachments(page),
-            RenderLastModified(page),
-            RenderPageNamespace(page),
+            UI.RenderPageContent(page, (contentId) =>  A.Href($"/edit?pageName={pageName}&contentId={contentId}").Append("Edit")),
+            UI.RenderPageAttachments(page),
+            UI.RenderLastModified(page),
+            UI.RenderPageNamespace(page),
             A.Href($"/edit?pageName={pageName}").Append("Edit").ToHtmlString()
           },
-          atSidePanel: () => AllPages(wiki)
+          atSidePanel: () => UI.AllPages(wiki)
         ).ToString());
     }
     else
@@ -201,7 +200,7 @@ app.MapGet("/{**pageName}", async context =>
         atBody: () =>
           new[]
           {
-            BuildForm(new PageInput
+            UI.BuildForm(new PageInput
             (
               Id: null, 
               Name: pageName, 
@@ -211,7 +210,7 @@ app.MapGet("/{**pageName}", async context =>
             ), 
             path: pageName, antiForgery: antiForgery.GetAndStoreTokens(context))
           },
-        atSidePanel: () => AllPagesForEditing(wiki)).ToString());
+        atSidePanel: () => UI.AllPagesForEditing(wiki)).ToString());
     }
 });
 
@@ -306,9 +305,9 @@ app.MapPost("/{**pageName}", async context =>
           atBody: () =>
             new[]
             {
-              BuildForm(input, path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context), modelState)
+              UI.BuildForm(input, path: $"{pageName}", antiForgery: antiForgery.GetAndStoreTokens(context), modelState)
             },
-          atSidePanel: () => AllPages(wiki)).ToString());
+          atSidePanel: () => UI.AllPages(wiki)).ToString());
         return;
     }
 
@@ -327,217 +326,3 @@ app.MapPost("/{**pageName}", async context =>
 await app.RunAsync();
 
 // End of the web part
-
-static string[] AllPages(Wiki wiki) => new[]
-{
-  @"<span class=""uk-label"">Pages</span>",
-  @"<ul class=""uk-list"">",
-  string.Join("",
-    wiki.ListAllPages().OrderBy(x => x.Name)
-      .Select(x => Li.Append(A.Href("/" + x.NsName).Append(x.NsName)).ToHtmlString()
-    )
-  ),
-  "</ul>"
-};
-
-static string[] AllPagesForEditing(Wiki wiki)
-{
-    return new[]
-    {
-      @"<span class=""uk-label"">Pages</span>",
-      @"<ul class=""uk-list"">",
-      string.Join("",
-        wiki.ListAllPages().OrderBy(x => x.Name)
-          .Select(x => Li.Append(Div.Class("uk-inline")
-              .Append(Span.Class("uk-form-icon").Attribute("uk-icon", "icon: copy"))
-              .Append(Input.Text.Value($"[{x.NsName}](/{x.NsName})").Class("uk-input uk-form-small").Style("cursor", "pointer").Attribute("onclick", "copyMarkdownLink(this);"))
-          ).ToHtmlString()
-        )
-      ),
-      "</ul>"
-    };
-}
-
-static string RenderMarkdown(string str)
-{
-    var sanitizer = new HtmlSanitizer();
-    return sanitizer.Sanitize(Markdown.ToHtml(str, new MarkdownPipelineBuilder().UseSoftlineBreakAsHardlineBreak().UseAdvancedExtensions().Build()));
-}
-
-static string RenderPageContent(Page page, Func<string, HtmlTag>? proc) 
-{
-  var str = new StringBuilder();
-  foreach(var c in page.Contents)
-  {
-    str.AppendLine(RenderMarkdown(c.Body));
-    if (proc != null)
-    {
-      var tag = proc(c.Id?.ToString() ?? string.Empty)!;
-      str.AppendLine(Div.Class("edit-segment").Append(tag).ToHtmlString());  
-    }
-  }
-
-  var rtr = str.ToString();
-  Console.WriteLine(rtr);
-  return rtr;
-} 
-
-static string RenderLastModified(Page page) => Div.Class("last-modified").Append("Last modified: " + page.LastModifiedUtc.ToString(DisplayDateFormat)).ToHtmlString();
-
-static string RenderPageNamespace(Page page)
-{
-    if (page.Ns is not object)
-        return string.Empty;
-
-    var div = Div.Class("namespace").Append($"Namespace: {page.Ns.Name}");
-    return div.ToHtmlString();
-}
-
-static string RenderDeletePageButton(Page page, AntiforgeryTokenSet antiForgery)
-{
-    var antiForgeryField = Input.Hidden.Name(antiForgery.FormFieldName).Value(antiForgery.RequestToken);
-    HtmlTag id = Input.Hidden.Name("Id").Value(page.Id.ToString());
-    var submit = Div.Style("margin-top", "20px").Append(Button.Class("uk-button uk-button-danger").Append("Delete Page"));
-
-    var form = Form
-               .Attribute("method", "post")
-               .Attribute("action", $"/delete-page")
-               .Attribute("onsubmit", $"return confirm('Please confirm to delete this page');")
-                 .Append(antiForgeryField)
-                 .Append(id)
-                 .Append(submit);
-
-    return form.ToHtmlString();
-}
-
-static string RenderPageAttachmentsForEdit(Page page, AntiforgeryTokenSet antiForgery)
-{
-    if (page.Attachments.Count == 0)
-        return string.Empty;
-
-    var label = Span.Class("uk-label").Append("Attachments");
-    var list = Ul.Class("uk-list");
-
-    HtmlTag CreateEditorHelper(Attachment attachment) =>
-      Span.Class("uk-inline")
-          .Append(Span.Class("uk-form-icon").Attribute("uk-icon", "icon: copy"))
-          .Append(Input.Text.Value($"[{attachment.FileName}](/attachment?fileId={attachment.FileId})")
-            .Class("uk-input uk-form-small uk-form-width-large")
-            .Style("cursor", "pointer")
-            .Attribute("onclick", "copyMarkdownLink(this);")
-          );
-
-    static HtmlTag CreateDelete(int pageId, string attachmentId, AntiforgeryTokenSet antiForgery)
-    {
-        var antiForgeryField = Input.Hidden.Name(antiForgery.FormFieldName).Value(antiForgery.RequestToken);
-        var id = Input.Hidden.Name("Id").Value(attachmentId.ToString());
-        var name = Input.Hidden.Name("PageId").Value(pageId.ToString());
-
-        var submit = Button.Class("uk-button uk-button-danger uk-button-small").Append(Span.Attribute("uk-icon", "icon: close; ratio: .75;"));
-        var form = Form
-               .Style("display", "inline")
-               .Attribute("method", "post")
-               .Attribute("action", $"/delete-attachment")
-               .Attribute("onsubmit", $"return confirm('Please confirm to delete this attachment');")
-                 .Append(antiForgeryField)
-                 .Append(id)
-                 .Append(name)
-                 .Append(submit);
-
-        return form;
-    }
-
-    foreach (var attachment in page.Attachments)
-    {
-        list = list.Append(Li
-          .Append(CreateEditorHelper(attachment))
-          .Append(CreateDelete(page.Id, attachment.FileId, antiForgery))
-        );
-    }
-    return label.ToHtmlString() + list.ToHtmlString();
-}
-
-static string RenderPageAttachments(Page page)
-{
-    if (page.Attachments.Count == 0)
-        return string.Empty;
-
-    var label = Span.Class("uk-label").Append("Attachments");
-    var list = Ul.Class("uk-list uk-list-disc");
-    foreach (var attachment in page.Attachments)
-    {
-        list = list.Append(Li.Append(A.Href($"/attachment?fileId={attachment.FileId}").Append(attachment.FileName)));
-    }
-    return label.ToHtmlString() + list.ToHtmlString();
-}
-
-// Build the wiki input form 
-static string BuildForm(PageInput input, string path, AntiforgeryTokenSet antiForgery, ModelStateDictionary? modelState = null)
-{
-    bool IsFieldOK(string key) => modelState!.ContainsKey(key) && modelState[key].ValidationState == ModelValidationState.Invalid;
-
-    var antiForgeryField = Input.Hidden.Name(antiForgery.FormFieldName).Value(antiForgery.RequestToken);
-
-    var nameField = Div
-      .Append(Label.Class("uk-form-label").Append(nameof(input.Name)))
-      .Append(Div.Class("uk-form-controls")
-        .Append(Input.Text.Class("uk-input").Name("Name").Value(input.Name))
-      );
-
-    var contentIdField = Input.Hidden.Name("ContentId").Value(input.ContentId ?? "");
-
-    var contentField = Div
-      .Append(Label.Class("uk-form-label").Append(nameof(input.Content)))
-      .Append(Div.Class("uk-form-controls")
-        .Append(Textarea.Name("Content").Class("uk-textarea").Append(input.Content))
-      );
-
-    var attachmentField = Div
-      .Append(Label.Class("uk-form-label").Append(nameof(input.Attachment)))
-      .Append(Div.Attribute("uk-form-custom", "target: true")
-        .Append(Input.File.Name("Attachment"))
-        .Append(Input.Text.Class("uk-input uk-form-width-large").Attribute("placeholder", "Click to select file").ToggleAttribute("disabled", true))
-      );
-
-    if (modelState is object && !modelState.IsValid)
-    {
-        if (IsFieldOK("Name"))
-        {
-            foreach (var er in modelState["Name"].Errors)
-            {
-                nameField = nameField.Append(Div.Class("uk-form-danger uk-text-small").Append(er.ErrorMessage));
-            }
-        }
-
-        if (IsFieldOK("Content"))
-        {
-            foreach (var er in modelState["Content"].Errors)
-            {
-                contentField = contentField.Append(Div.Class("uk-form-danger uk-text-small").Append(er.ErrorMessage));
-            }
-        }
-    }
-
-    var submit = Div.Style("margin-top", "20px").Append(Button.Class("uk-button uk-button-primary").Append("Submit"));
-
-    var form = Form
-               .Class("uk-form-stacked")
-               .Attribute("method", "post")
-               .Attribute("enctype", "multipart/form-data")
-               .Attribute("action", $"/{path}")
-                 .Append(antiForgeryField)
-                 .Append(nameField)
-                 .Append(contentIdField)
-                 .Append(contentField)
-                 .Append(attachmentField);
-
-    if (input.Id.HasValue)
-    {
-        HtmlTag id = Input.Hidden.Name("Id").Value(input.Id.ToString());
-        form = form.Append(id);
-    }
-
-    form = form.Append(submit);
-
-    return form.ToHtmlString();
-}

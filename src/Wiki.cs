@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-class Wiki
+public class Wiki
 {
     DateTime Timestamp() => DateTime.UtcNow;
 

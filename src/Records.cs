@@ -14,12 +14,12 @@ static class Collections
     public const string Namespaces = "Namespaces";    
 }
 
-record Namespace 
+public record Namespace 
 (
     [BsonId]int Id, string Name, string? Description
 );
 
-record Page
+public record Page
 {
     public int Id { get; set; }
 
@@ -68,7 +68,7 @@ record Page
     public List<Attachment> Attachments { get; set; } = new();
 }
 
-record Content
+public record Content
 {
     public ObjectId Id { get; set;} = ObjectId.NewObjectId();
 
@@ -95,7 +95,7 @@ record Content
 
 }
 
-record Attachment
+public record Attachment
 (
     string FileId,
 
@@ -106,7 +106,7 @@ record Attachment
     DateTime LastModifiedUtc
 );
 
-record PageInput(int? Id, string Name, string? ContentId, string Content, IFormFile? Attachment)
+public record PageInput(int? Id, string Name, string? ContentId, string Content, IFormFile? Attachment)
 {
     public static PageInput From(IFormCollection form)
     {
